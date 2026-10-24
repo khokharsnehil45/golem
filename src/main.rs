@@ -38,6 +38,8 @@ fn main() {
             server_type,
             memory,
             online_mode,
+            max_players,
+            view_distance,
         }) => {
             banner::print_banner();
 
@@ -53,6 +55,16 @@ fn main() {
             }
 
             if let Err(e) = validation::validate_memory(&memory) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
+
+            if let Err(e) = validation::validate_max_players(max_players) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
+
+            if let Err(e) = validation::validate_view_distance(view_distance) {
                 eprintln!("{} {}", "Error:".bold().red(), e);
                 std::process::exit(1);
             }
@@ -104,6 +116,8 @@ fn main() {
                 server_type: &server_type,
                 memory: &memory,
                 online_mode,
+                max_players,
+                view_distance,
             };
 
             match docker::run_minecraft_container(&opts) {
@@ -120,6 +134,8 @@ fn main() {
                     println!("  {:<18} {}", "Container ID:".bold(), short_id);
                     println!("  {:<18} {}", "Server Engine:".bold(), server_type);
                     println!("  {:<18} {}", "Allocated RAM:".bold(), memory);
+                    println!("  {:<18} {}", "Max Players:".bold(), max_players);
+                    println!("  {:<18} {}", "View Distance:".bold(), format!("{} chunks", view_distance));
                     println!("  {:<18} {}", "Persistent Data:".bold(), format!("golem_{}_data", server_name));
                     println!("  {:<18} {}", "Online Mode:".bold(), if online_mode { "True (Mojang Auth)" } else { "False (Offline/Custom)" });
                     println!("{}", "──────────────────────────────────────────────────────".dimmed());

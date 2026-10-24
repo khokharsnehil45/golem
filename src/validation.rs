@@ -48,3 +48,22 @@ pub fn validate_port(port: u16) -> Result<(), &'static str> {
     }
     Ok(())
 }
+
+/// Validates maximum players limit.
+pub fn validate_max_players(count: u32) -> Result<(), &'static str> {
+    if count == 0 {
+        return Err("Max players must be at least 1.");
+    }
+    if count > 10000 {
+        return Err("Max players cannot exceed 10,000.");
+    }
+    Ok(())
+}
+
+/// Validates view distance (render distance in chunks).
+pub fn validate_view_distance(distance: u8) -> Result<(), &'static str> {
+    if !(3..=32).contains(&distance) {
+        return Err("View distance must be between 3 and 32 chunks.");
+    }
+    Ok(())
+}

@@ -34,6 +34,14 @@ pub enum Commands {
         /// Set online mode (set to true for Mojang auth, false for offline/custom launchers)
         #[arg(long, default_value_t = false)]
         online_mode: bool,
+
+        /// Maximum number of players allowed on the server (default: 20)
+        #[arg(long, default_value_t = 20)]
+        max_players: u32,
+
+        /// Server render/view distance in chunks (default: 10, range: 3-32)
+        #[arg(long, default_value_t = 10)]
+        view_distance: u8,
     },
 
     /// List all Minecraft server containers

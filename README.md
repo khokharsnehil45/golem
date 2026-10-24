@@ -181,6 +181,8 @@ golem create skyblock \
   --port 25566 \
   --server-type PAPER \
   --memory 4G \
+  --max-players 10 \
+  --view-distance 12 \
   --online-mode
 ```
 
@@ -191,6 +193,8 @@ golem create skyblock \
 | `--port` | `-p` | `25565` | Host port to bind to the container |
 | `--server-type` | | `PAPER` | Server type (`PAPER`, `PURPUR`, `FABRIC`, `FORGE`, `SPIGOT`, `VANILLA`) |
 | `--memory` | `-m` | `2G` | Memory RAM limit (`2G`, `4G`, `8G`, etc.) |
+| `--max-players` | | `20` | Max simultaneous players allowed on server (1-10,000) |
+| `--view-distance` | | `10` | Render/view distance in chunks (3-32) |
 | `--online-mode` | | `false` | Enable official Mojang authentication (`true` for official accounts only, `false` for offline/custom launchers) |
 
 ---

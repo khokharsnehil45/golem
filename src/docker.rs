@@ -7,6 +7,8 @@ pub struct CreateServerOptions<'a> {
     pub server_type: &'a str,
     pub memory: &'a str,
     pub online_mode: bool,
+    pub max_players: u32,
+    pub view_distance: u8,
 }
 
 #[derive(Debug)]
@@ -199,6 +201,10 @@ pub fn run_minecraft_container(opts: &CreateServerOptions) -> Result<String, Str
             &format!("MEMORY={}", opts.memory),
             "-e",
             &format!("ONLINE_MODE={}", online_mode_val),
+            "-e",
+            &format!("MAX_PLAYERS={}", opts.max_players),
+            "-e",
+            &format!("VIEW_DISTANCE={}", opts.view_distance),
             "-v",
             &format!("{}:/data", volume_name),
             "--restart",
