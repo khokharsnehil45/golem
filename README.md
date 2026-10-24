@@ -123,17 +123,30 @@ golem stats survival
   [04:26:12 INFO]: Kevin logged in with entity id 66 at ([world]61.07, 66.0, 51.30)
 ```
 
-### 3. Stop Server
+### 4. Stop Server
 Gracefully stop the server container:
 ```bash
 golem stop survival
 ```
 
-### 4. Resume / Run Server
+### 5. Resume / Run Server
 Start up an existing stopped server anytime:
 ```bash
 golem run survival
 # or alias: golem start survival
+```
+
+### 6. Remove a Server (`golem rm`)
+Remove a container safely with interactive confirmation:
+```bash
+# Deletes container but keeps world data volume safely
+golem rm survival
+
+# Delete container AND permanently purge world data volume
+golem rm survival --purge
+
+# Skip confirmation prompt (-f or -y)
+golem rm survival --purge -y
 ```
 
 ---

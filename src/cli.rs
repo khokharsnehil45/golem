@@ -53,6 +53,21 @@ pub enum Commands {
         server_name: String,
     },
 
+    /// Remove a Minecraft server container
+    #[command(alias = "remove", alias = "delete")]
+    Rm {
+        /// Name of the server container to remove
+        server_name: String,
+
+        /// Also delete the persistent world data volume (irreversible!)
+        #[arg(short, long)]
+        purge: bool,
+
+        /// Skip confirmation prompt
+        #[arg(short, long, short_alias = 'y', alias = "yes")]
+        force: bool,
+    },
+
     /// View simple server status, port, resource usage, and recent logs
     #[command(alias = "dash", alias = "status")]
     Stats {

@@ -229,6 +229,45 @@ pub fn stop_container(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Removes a container (with force if running).
+pub fn remove_container(name: &str) -> Result<(), String> {
+    let output = Command::new("docker")
+        .args(["rm", "-f", name])
+        .output()
+        .map_err(|e| format!("Failed to execute docker rm: {}", e))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Docker rm error: {}", err.trim()));
+    }
+
+    Ok(())
+}
+
+/// Checks if a docker volume exists.
+pub fn volume_exists(volume_name: &str) -> bool {
+    Command::new("docker")
+        .args(["volume", "inspect", volume_name])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Removes a docker volume.
+pub fn remove_volume(volume_name: &str) -> Result<(), String> {
+    let output = Command::new("docker")
+        .args(["volume", "rm", volume_name])
+        .output()
+        .map_err(|e| format!("Failed to execute docker volume rm: {}", e))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Docker volume rm error: {}", err.trim()));
+    }
+
+    Ok(())
+}
+
 /// Gets the status of the container (e.g. "running", "exited", "paused").
 pub fn get_container_status(name: &str) -> Result<String, String> {
     let output = Command::new("docker")
@@ -247,7 +286,6 @@ pub fn get_container_status(name: &str) -> Result<String, String> {
 
 /// Gets the host port mapped to Minecraft's 25565 port.
 pub fn get_container_port(name: &str) -> Option<u16> {
-    // Check HostConfig PortBindings first (works even when container is stopped)
     let output = Command::new("docker")
         .args([
             "inspect",
@@ -266,7 +304,6 @@ pub fn get_container_port(name: &str) -> Option<u16> {
         }
     }
 
-    // Fallback to docker port command
     let port_output = Command::new("docker")
         .args(["port", name, "25565"])
         .output()

@@ -7,6 +7,7 @@ use clap::Parser;
 use cli::{Cli, Commands};
 use colored::*;
 use docker::CreateServerOptions;
+use std::io::{self, Write};
 
 fn main() {
     let cli = Cli::parse();
@@ -40,7 +41,7 @@ fn main() {
                     );
                     eprintln!(
                         "Choose another name or delete it using: {}",
-                        format!("docker rm -f {}", server_name).bold()
+                        format!("golem rm -f {}", server_name).bold()
                     );
                     std::process::exit(1);
                 }
@@ -116,6 +117,7 @@ fn main() {
                     println!("  • View stats:          {}", format!("golem stats {}", server_name).bold().yellow());
                     println!("  • Stop server:         {}", format!("golem stop {}", server_name).white());
                     println!("  • Run/Start server:    {}", format!("golem run {}", server_name).white());
+                    println!("  • Remove server:       {}", format!("golem rm {}", server_name).white());
                     println!("  • Follow raw logs:     {}", format!("docker logs -f {}", server_name).white());
                     println!();
                 }
@@ -145,7 +147,6 @@ fn main() {
                         format!("Found {} server(s):\n", servers.len()).dimmed()
                     );
 
-                    // Determine column widths
                     let max_name_len = servers
                         .iter()
                         .map(|s| s.name.len())
@@ -205,6 +206,7 @@ fn main() {
                     println!("  • View stats:        {}", "golem stats <name>".white());
                     println!("  • Start a server:    {}", "golem run <name>".white());
                     println!("  • Stop a server:     {}", "golem stop <name>".white());
+                    println!("  • Remove a server:   {}", "golem rm <name>".white());
                     println!();
                 }
                 Err(e) => {
@@ -276,6 +278,7 @@ fn main() {
             println!("\n{}", "📋 Management:".bold().cyan());
             println!("  • View stats:          {}", format!("golem stats {}", server_name).bold().yellow());
             println!("  • Stop server:         {}", format!("golem stop {}", server_name).white());
+            println!("  • Remove server:       {}", format!("golem rm {}", server_name).white());
             println!();
         }
 
@@ -332,6 +335,99 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+
+        Commands::Rm {
+            server_name,
+            purge,
+            force,
+        } => {
+            println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
+
+            // 1. Check if container exists
+            match docker::container_exists(&server_name) {
+                Ok(true) => {}
+                Ok(false) => {
+                    eprintln!(
+                        "{} Server '{}' does not exist.",
+                        "Error:".bold().red(),
+                        server_name.yellow()
+                    );
+                    std::process::exit(1);
+                }
+                Err(e) => {
+                    eprintln!("{} Failed to check server: {}", "Error:".bold().red(), e);
+                    std::process::exit(1);
+                }
+            }
+
+            let volume_name = format!("golem_{}_data", server_name);
+            let has_volume = docker::volume_exists(&volume_name);
+
+            // 2. Confirmation prompt if not forced
+            if !force {
+                if purge {
+                    print!(
+                        "{} Are you sure you want to permanently delete container '{}' AND world data volume '{}'? [y/N]: ",
+                        "⚠️".yellow(),
+                        server_name.bold().yellow(),
+                        volume_name.bold().red()
+                    );
+                } else {
+                    print!(
+                        "{} Are you sure you want to delete container '{}'? (World data will be kept) [y/N]: ",
+                        "⚠️".yellow(),
+                        server_name.bold().yellow()
+                    );
+                }
+                io::stdout().flush().unwrap();
+
+                let mut input = String::new();
+                if io::stdin().read_line(&mut input).is_err() || {
+                    let t = input.trim().to_lowercase();
+                    t != "y" && t != "yes"
+                } {
+                    println!("{}", "Deletion cancelled.".dimmed());
+                    return;
+                }
+            }
+
+            // 3. Remove container
+            print!("{} Removing container '{}'... ", "•".cyan(), server_name.bold());
+            match docker::remove_container(&server_name) {
+                Ok(_) => println!("{}", "OK".bold().green()),
+                Err(e) => {
+                    println!("{}", "FAILED".bold().red());
+                    eprintln!("\n{} Failed to remove container: {}", "Error:".bold().red(), e);
+                    std::process::exit(1);
+                }
+            }
+
+            // 4. Purge volume if requested
+            if purge {
+                if has_volume {
+                    print!("{} Removing volume '{}'... ", "•".cyan(), volume_name.bold());
+                    match docker::remove_volume(&volume_name) {
+                        Ok(_) => println!("{}", "OK".bold().green()),
+                        Err(e) => {
+                            println!("{}", "FAILED".bold().red());
+                            eprintln!("Warning: Failed to delete volume: {}", e);
+                        }
+                    }
+                }
+            } else if has_volume {
+                println!(
+                    "{} World data volume '{}' was preserved.",
+                    "ℹ".cyan(),
+                    volume_name.dimmed()
+                );
+                println!(
+                    "  (To delete world data too, run: {})",
+                    format!("golem rm {} --purge", server_name).dimmed()
+                );
+            }
+
+            println!("\n{} Server '{}' successfully removed!\n", "✔".bold().green(), server_name.cyan());
         }
 
         Commands::Stats { server_name } => {
