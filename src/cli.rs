@@ -82,4 +82,46 @@ pub enum Commands {
         /// Name of the server container to inspect
         server_name: String,
     },
+
+    /// View or stream live server console logs
+    Logs {
+        /// Name of the server container
+        server_name: String,
+
+        /// Live follow / stream logs in real time
+        #[arg(short, long)]
+        follow: bool,
+
+        /// Number of lines from the end of the logs to show (default: 50)
+        #[arg(short = 'n', long, default_value_t = 50)]
+        tail: usize,
+    },
+
+    /// Create a compressed backup snapshot of a server world
+    Backup {
+        /// Name of the server container to back up (optional if using --list)
+        #[arg(default_value = "")]
+        server_name: String,
+
+        /// List all available backups
+        #[arg(short, long)]
+        list: bool,
+
+        /// Optional custom output directory (default: ~/.golem/backups)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Restore a server world from a compressed backup snapshot (.tar.gz)
+    Restore {
+        /// Name of the server container to restore into
+        server_name: String,
+
+        /// Path to the backup archive file (.tar.gz)
+        backup_file: String,
+
+        /// Skip confirmation prompt
+        #[arg(short, long, short_alias = 'y', alias = "yes")]
+        force: bool,
+    },
 }

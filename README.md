@@ -158,6 +158,35 @@ golem rm survival --purge
 golem rm survival --purge -y
 ```
 
+### 7. Stream Server Logs (`golem logs`)
+View recent lines or follow the console in real time:
+```bash
+# View last 50 lines with color syntax highlighting
+golem logs survival
+
+# View last 100 lines
+golem logs survival -n 100
+
+# Stream / follow logs live (press Ctrl+C to detach)
+golem logs survival -f
+```
+
+### 8. World Backups & Restore (`golem backup` / `golem restore`)
+Snapshot and protect your worlds:
+```bash
+# Create a compressed timestamped snapshot in ~/.golem/backups/
+golem backup survival
+
+# List all available saved backups
+golem backup --list
+
+# Restore world from a snapshot
+golem restore survival ~/.golem/backups/survival_backup_2026-10-24_142601.tar.gz
+
+# Restore without confirmation prompt
+golem restore survival ~/.golem/backups/survival_backup_2026-10-24_142601.tar.gz -y
+```
+
 ---
 
 ## 🕹️ Connecting to Your Server

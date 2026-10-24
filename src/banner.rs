@@ -61,6 +61,9 @@ pub fn print_welcome(active_servers: Option<(usize, usize)>) {
     println!("     {:<12} {}", "run".cyan(), "Start or resume a stopped server (alias: start)");
     println!("     {:<12} {}", "stop".cyan(), "Gracefully stop a running server");
     println!("     {:<12} {}", "rm".cyan(), "Remove a server (and optionally purge world data)");
+    println!("     {:<12} {}", "logs".cyan(), "View or stream live server console logs (-f to follow)");
+    println!("     {:<12} {}", "backup".cyan(), "Create a compressed world snapshot (.tar.gz)");
+    println!("     {:<12} {}", "restore".cyan(), "Restore a server world from a backup archive");
     println!("     {:<12} {}", "help".cyan(), "Print help information");
     println!();
 

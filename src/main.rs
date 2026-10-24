@@ -1,6 +1,8 @@
+mod backup;
 mod banner;
 mod cli;
 mod docker;
+mod logs;
 mod network;
 mod stats;
 mod validation;
@@ -497,6 +499,86 @@ fn main() {
         Some(Commands::Stats { server_name }) => {
             banner::print_banner();
             stats::show_simple_stats(&server_name);
+        }
+
+        Some(Commands::Logs {
+            server_name,
+            follow,
+            tail,
+        }) => {
+            if let Err(e) = logs::display_logs(&server_name, follow, tail) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
+        }
+
+        Some(Commands::Backup {
+            server_name,
+            list,
+            output,
+        }) => {
+            banner::print_banner();
+            if list {
+                let filter = if server_name.is_empty() {
+                    None
+                } else {
+                    Some(server_name.as_str())
+                };
+                if let Err(e) = backup::list_backups(filter) {
+                    eprintln!("{} {}", "Error:".bold().red(), e);
+                    std::process::exit(1);
+                }
+                return;
+            }
+
+            if server_name.is_empty() {
+                eprintln!(
+                    "{} Please specify a server name to back up: {}",
+                    "Error:".bold().red(),
+                    "golem backup <SERVER_NAME>".yellow()
+                );
+                eprintln!(
+                    "  (Or use {} to see all saved backups)",
+                    "golem backup --list".dimmed()
+                );
+                std::process::exit(1);
+            }
+
+            println!(
+                "{} Creating snapshot for server '{}'...",
+                "▶".cyan().bold(),
+                server_name.bold()
+            );
+
+            match backup::create_backup(&server_name, output.as_deref()) {
+                Ok((path, size)) => {
+                    let size_str = backup::format_bytes(size);
+                    println!("\n{} Backup created successfully!", "✔".bold().green());
+                    println!("  {:<14} {}", "Archive File:".bold(), path.display().to_string().cyan());
+                    println!("  {:<14} {}", "Archive Size:".bold(), size_str.yellow().bold());
+                    println!(
+                        "\n  Restore anytime with: {}",
+                        format!("golem restore {} {}", server_name, path.display()).bold().yellow()
+                    );
+                    println!();
+                }
+                Err(e) => {
+                    eprintln!("\n{} {}", "Error:".bold().red(), e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Some(Commands::Restore {
+            server_name,
+            backup_file,
+            force,
+        }) => {
+            banner::print_banner();
+            if let Err(e) = backup::restore_backup(&server_name, &backup_file, force) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
         }
     }
 }
