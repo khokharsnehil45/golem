@@ -4,7 +4,7 @@ use crate::docker;
 use crate::network;
 
 pub fn show_simple_stats(server_name: &str) {
-    println!("{}", format!("🗿 Golem Server Status: {}", server_name).bold().cyan());
+    println!("{}", format!("Server Status: {}", server_name).bold().cyan());
 
     // 1. Check if container exists
     match docker::container_exists(server_name) {

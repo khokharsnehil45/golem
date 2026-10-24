@@ -1,3 +1,4 @@
+mod banner;
 mod cli;
 mod docker;
 mod network;
@@ -15,20 +16,30 @@ fn main() {
 
     // Verify Docker daemon before running any command
     if let Err(e) = docker::ensure_docker_available() {
+        banner::print_banner();
         eprintln!("{} {}", "Error:".bold().red(), e);
         std::process::exit(1);
     }
 
     match cli.command {
-        Commands::Create {
+        None => {
+            // When user runs bare `golem` command
+            let server_stats = docker::list_minecraft_servers().ok().map(|servers| {
+                let total = servers.len();
+                let running = servers.iter().filter(|s| s.status == "running").count();
+                (running, total)
+            });
+            banner::print_welcome(server_stats);
+        }
+
+        Some(Commands::Create {
             server_name,
             port,
             server_type,
             memory,
             online_mode,
-        } => {
-            println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
-            println!();
+        }) => {
+            banner::print_banner();
 
             // Step 1: Validate inputs
             if let Err(e) = validation::validate_server_name(&server_name) {
@@ -146,12 +157,12 @@ fn main() {
             }
         }
 
-        Commands::Ls => {
-            println!("{}", "🗿 Golem Minecraft Servers".bold().cyan());
+        Some(Commands::Ls) => {
+            banner::print_banner();
 
             match docker::list_minecraft_servers() {
                 Ok(servers) if servers.is_empty() => {
-                    println!("\n{}", "No Minecraft server containers found.".yellow());
+                    println!("{}", "No Minecraft server containers found.".yellow());
                     println!(
                         "Create your first server with: {}",
                         "golem create <name> --port <port>".bold().green()
@@ -161,7 +172,7 @@ fn main() {
                 Ok(servers) => {
                     println!(
                         "{}",
-                        format!("Found {} server(s):\n", servers.len()).dimmed()
+                        format!("Active Minecraft Servers ({} total):\n", servers.len()).bold().white()
                     );
 
                     let max_name_len = servers
@@ -240,8 +251,8 @@ fn main() {
             }
         }
 
-        Commands::Run { server_name } => {
-            println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
+        Some(Commands::Run { server_name }) => {
+            banner::print_banner();
 
             // 1. Check if container exists
             match docker::container_exists(&server_name) {
@@ -319,8 +330,8 @@ fn main() {
             println!();
         }
 
-        Commands::Stop { server_name } => {
-            println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
+        Some(Commands::Stop { server_name }) => {
+            banner::print_banner();
 
             // Check if container exists
             match docker::container_exists(&server_name) {
@@ -374,12 +385,12 @@ fn main() {
             }
         }
 
-        Commands::Rm {
+        Some(Commands::Rm {
             server_name,
             purge,
             force,
-        } => {
-            println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
+        }) => {
+            banner::print_banner();
 
             // 1. Check if container exists
             match docker::container_exists(&server_name) {
@@ -467,7 +478,8 @@ fn main() {
             println!("\n{} Server '{}' successfully removed!\n", "✔".bold().green(), server_name.cyan());
         }
 
-        Commands::Stats { server_name } => {
+        Some(Commands::Stats { server_name }) => {
+            banner::print_banner();
             stats::show_simple_stats(&server_name);
         }
     }
