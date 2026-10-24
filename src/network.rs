@@ -15,7 +15,10 @@ pub fn get_local_ip() -> Option<String> {
     }
 }
 
-/// Checks if a TCP port is currently available on 0.0.0.0
+/// Checks if a TCP port is currently available on both 0.0.0.0 and 127.0.0.1
 pub fn is_port_available(port: u16) -> bool {
-    TcpListener::bind(("0.0.0.0", port)).is_ok()
+    if port == 0 {
+        return false;
+    }
+    TcpListener::bind(("0.0.0.0", port)).is_ok() && TcpListener::bind(("127.0.0.1", port)).is_ok()
 }

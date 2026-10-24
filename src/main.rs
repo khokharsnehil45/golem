@@ -2,6 +2,7 @@ mod cli;
 mod docker;
 mod network;
 mod stats;
+mod validation;
 
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -29,7 +30,23 @@ fn main() {
             println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
             println!();
 
-            // Step 1: Check container name availability
+            // Step 1: Validate inputs
+            if let Err(e) = validation::validate_server_name(&server_name) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
+
+            if let Err(e) = validation::validate_port(port) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
+
+            if let Err(e) = validation::validate_memory(&memory) {
+                eprintln!("{} {}", "Error:".bold().red(), e);
+                std::process::exit(1);
+            }
+
+            // Step 2: Check container name availability
             print!("{} Checking container name availability... ", "•".cyan());
             match docker::container_exists(&server_name) {
                 Ok(true) => {
@@ -54,7 +71,7 @@ fn main() {
                 }
             }
 
-            // Step 2: Check port availability
+            // Step 3: Check port availability
             print!("{} Checking port {} availability... ", "•".cyan(), port.to_string().yellow());
             if !network::is_port_available(port) {
                 println!("{}", "BUSY".bold().red());
@@ -68,7 +85,7 @@ fn main() {
             }
             println!("{}", "OK".bold().green());
 
-            // Step 3: Launch container
+            // Step 4: Launch container
             println!("\n{} Spinning up Minecraft server '{}'...", "▶".bold().blue(), server_name.bold());
             let opts = CreateServerOptions {
                 server_name: &server_name,
@@ -154,14 +171,15 @@ fn main() {
                         .unwrap_or(4)
                         .max(16);
 
+                    // Header
                     println!(
                         "  {:<name_w$}  {:<14}  {:<8}  {:<8}  {:<6}  {}",
-                        "NAME".bold(),
-                        "STATUS".bold(),
-                        "PORT".bold(),
-                        "ENGINE".bold(),
-                        "RAM".bold(),
-                        "LOCAL ADDRESS".bold(),
+                        "NAME",
+                        "STATUS",
+                        "PORT",
+                        "ENGINE",
+                        "RAM",
+                        "LOCAL ADDRESS",
                         name_w = max_name_len
                     );
                     println!(
@@ -170,15 +188,22 @@ fn main() {
                     );
 
                     for s in servers {
-                        let status_badge = if s.status == "running" {
-                            "🟢 Running".bold().green()
+                        let padded_name = format!("{:<width$}", s.name, width = max_name_len);
+
+                        // Visual alignment: "🟢 Running " and "🔴 Stopped " are each exactly 14 display chars
+                        let status_display = if s.status == "running" {
+                            "🟢 Running    ".green().bold()
                         } else if s.status == "exited" {
-                            "🔴 Stopped".bold().red()
+                            "🔴 Stopped    ".red().bold()
                         } else {
-                            format!("🟡 {}", s.status).yellow()
+                            format!("{:<14}", format!("🟡 {}", s.status)).yellow().bold()
                         };
 
-                        let port_str = s.port.map(|p| p.to_string()).unwrap_or_else(|| "-".to_string());
+                        let port_raw = s.port.map(|p| p.to_string()).unwrap_or_else(|| "-".to_string());
+                        let padded_port = format!("{:<8}", port_raw);
+
+                        let padded_type = format!("{:<8}", s.server_type);
+                        let padded_mem = format!("{:<6}", s.memory);
 
                         let local_addr = match s.port {
                             Some(25565) => "localhost".to_string(),
@@ -187,14 +212,13 @@ fn main() {
                         };
 
                         println!(
-                            "  {:<name_w$}  {:<14}  {:<8}  {:<8}  {:<6}  {}",
-                            s.name.cyan().bold(),
-                            status_badge,
-                            port_str.yellow(),
-                            s.server_type,
-                            s.memory,
-                            local_addr.white(),
-                            name_w = max_name_len
+                            "  {}  {}  {}  {}  {}  {}",
+                            padded_name.cyan().bold(),
+                            status_display,
+                            padded_port.yellow(),
+                            padded_type.white(),
+                            padded_mem.white(),
+                            local_addr.white()
                         );
                     }
 
@@ -219,7 +243,7 @@ fn main() {
         Commands::Run { server_name } => {
             println!("{}", "🗿 Golem - Minecraft Server Launcher".bold().cyan());
 
-            // Check if container exists
+            // 1. Check if container exists
             match docker::container_exists(&server_name) {
                 Ok(true) => {}
                 Ok(false) => {
@@ -237,7 +261,7 @@ fn main() {
                 }
             }
 
-            // Check current status
+            // 2. Check current status
             let status = docker::get_container_status(&server_name).unwrap_or_default();
             if status == "running" {
                 println!(
@@ -246,6 +270,19 @@ fn main() {
                     server_name.yellow()
                 );
             } else {
+                // 3. Proactively check if port is currently free before starting
+                if let Some(port) = docker::get_container_port(&server_name) {
+                    if !network::is_port_available(port) {
+                        eprintln!(
+                            "\n{} Cannot start server '{}': Port {} is already in use by another service on your machine.",
+                            "Error:".bold().red(),
+                            server_name.yellow(),
+                            port
+                        );
+                        std::process::exit(1);
+                    }
+                }
+
                 print!("{} Starting server '{}'... ", "▶".cyan().bold(), server_name.bold());
                 match docker::start_container(&server_name) {
                     Ok(_) => println!("{}", "OK".bold().green()),

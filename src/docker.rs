@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::process::Command;
 
 pub struct CreateServerOptions<'a> {
@@ -38,36 +39,52 @@ pub fn ensure_docker_available() -> Result<(), String> {
     }
 }
 
-/// Checks whether a container with the given name exists (running or stopped).
+/// Checks whether a container with the exact given name exists (running or stopped).
+/// Uses direct O(1) Docker inspect to avoid regex escaping vulnerabilities.
 pub fn container_exists(name: &str) -> Result<bool, String> {
-    let filter_arg = format!("^/?{}$", name);
     let output = Command::new("docker")
+        .args(["inspect", "--format={{.Name}}", name])
+        .output()
+        .map_err(|e| format!("Failed to inspect docker container: {}", e))?;
+
+    if output.status.success() {
+        Ok(true)
+    } else {
+        // If docker exited non-zero, the container was not found
+        Ok(false)
+    }
+}
+
+/// Lists all Minecraft server containers on the host (both Golem-labeled and itzg-based).
+pub fn list_minecraft_servers() -> Result<Vec<ServerListItem>, String> {
+    let mut names = Vec::new();
+    let mut seen = HashSet::new();
+
+    // Query 1: Containers created with Golem label
+    if let Ok(output) = Command::new("docker")
         .args([
             "ps",
             "-a",
             "--filter",
-            &format!("name={}", filter_arg),
+            "label=com.golem.managed=true",
             "--format",
             "{{.Names}}",
         ])
         .output()
-        .map_err(|e| format!("Failed to inspect docker containers: {}", e))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let name = line.trim().to_string();
+                if !name.is_empty() && seen.insert(name.clone()) {
+                    names.push(name);
+                }
+            }
+        }
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let exists = stdout
-        .lines()
-        .any(|line| line.trim() == name || line.trim() == format!("/{}", name));
-
-    Ok(exists)
-}
-
-/// Lists all Minecraft server containers on the host.
-pub fn list_minecraft_servers() -> Result<Vec<ServerListItem>, String> {
-    let output = Command::new("docker")
+    // Query 2: Fallback for containers created by itzg/minecraft-server ancestor
+    if let Ok(output) = Command::new("docker")
         .args([
             "ps",
             "-a",
@@ -77,18 +94,17 @@ pub fn list_minecraft_servers() -> Result<Vec<ServerListItem>, String> {
             "{{.Names}}",
         ])
         .output()
-        .map_err(|e| format!("Failed to execute docker ps: {}", e))?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let name = line.trim().to_string();
+                if !name.is_empty() && seen.insert(name.clone()) {
+                    names.push(name);
+                }
+            }
+        }
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let names: Vec<String> = stdout
-        .lines()
-        .map(|l| l.trim().to_string())
-        .filter(|l| !l.is_empty())
-        .collect();
 
     if names.is_empty() {
         return Ok(Vec::new());
@@ -96,7 +112,7 @@ pub fn list_minecraft_servers() -> Result<Vec<ServerListItem>, String> {
 
     let mut inspect_cmd = Command::new("docker");
     inspect_cmd.arg("inspect");
-    inspect_cmd.arg("--format={{.Name}}|{{.State.Status}}|{{range $p, $conf := .HostConfig.PortBindings}}{{range $conf}}{{.HostPort}} {{end}}{{end}}|{{range .Config.Env}}{{.}};{{end}}");
+    inspect_cmd.arg("--format={{.Name}}|{{.State.Status}}|{{range $conf := index .HostConfig.PortBindings \"25565/tcp\"}}{{.HostPort}} {{end}}|{{range .Config.Env}}{{.}};{{end}}");
     for name in &names {
         inspect_cmd.arg(name);
     }
@@ -159,7 +175,7 @@ pub fn list_minecraft_servers() -> Result<Vec<ServerListItem>, String> {
     Ok(servers)
 }
 
-/// Runs a new itzg/minecraft-server container with the requested configuration.
+/// Runs a new itzg/minecraft-server container with Golem labels and requested configuration.
 pub fn run_minecraft_container(opts: &CreateServerOptions) -> Result<String, String> {
     let volume_name = format!("golem_{}_data", opts.server_name);
     let port_mapping = format!("{}:25565", opts.port);
@@ -171,6 +187,8 @@ pub fn run_minecraft_container(opts: &CreateServerOptions) -> Result<String, Str
             "-d",
             "--name",
             opts.server_name,
+            "--label",
+            "com.golem.managed=true",
             "-p",
             &port_mapping,
             "-e",
@@ -284,12 +302,13 @@ pub fn get_container_status(name: &str) -> Result<String, String> {
     Ok(status)
 }
 
-/// Gets the host port mapped to Minecraft's 25565 port.
+/// Gets the host port specifically mapped to Minecraft's 25565/tcp port.
 pub fn get_container_port(name: &str) -> Option<u16> {
+    // 1. Inspect exact Minecraft port binding "25565/tcp" first
     let output = Command::new("docker")
         .args([
             "inspect",
-            "--format={{range $p, $conf := .HostConfig.PortBindings}}{{range $conf}}{{.HostPort}} {{end}}{{end}}",
+            "--format={{range $conf := index .HostConfig.PortBindings \"25565/tcp\"}}{{.HostPort}} {{end}}",
             name,
         ])
         .output()
@@ -304,6 +323,7 @@ pub fn get_container_port(name: &str) -> Option<u16> {
         }
     }
 
+    // 2. Fallback to docker port command for 25565
     let port_output = Command::new("docker")
         .args(["port", name, "25565"])
         .output()
@@ -351,7 +371,7 @@ pub fn get_container_stats(name: &str) -> Result<(String, String), String> {
     }
 }
 
-/// Fetches the last `tail` lines of container logs.
+/// Fetches the last `tail` lines of container logs in chronological order.
 pub fn get_container_logs(name: &str, tail: usize) -> Result<Vec<String>, String> {
     let tail_str = tail.to_string();
     let output = Command::new("docker")
@@ -362,15 +382,12 @@ pub fn get_container_logs(name: &str, tail: usize) -> Result<Vec<String>, String
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    let mut logs: Vec<String> = stdout
-        .lines()
-        .chain(stderr.lines())
-        .map(|s| s.to_string())
-        .collect();
-
-    if logs.len() > tail {
-        logs = logs.split_off(logs.len() - tail);
-    }
+    // Docker multiplexes stdout and stderr. Use stdout if available, otherwise stderr.
+    let logs: Vec<String> = if !stdout.trim().is_empty() {
+        stdout.lines().map(|s| s.to_string()).collect()
+    } else {
+        stderr.lines().map(|s| s.to_string()).collect()
+    };
 
     Ok(logs)
 }
