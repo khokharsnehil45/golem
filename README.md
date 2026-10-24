@@ -79,7 +79,25 @@ golem create survival --port 8000
   • Follow raw logs:     docker logs -f survival
 ```
 
-### 2. View Server Stats & Health
+### 2. List All Servers (`golem ls`)
+List all your Minecraft servers with statuses, ports, engine types, and addresses:
+```bash
+golem ls
+# or alias: golem list
+```
+
+```text
+🗿 Golem Minecraft Servers
+Found 2 server(s):
+
+  NAME               STATUS          PORT      ENGINE    RAM     LOCAL ADDRESS
+  ─────────────────────────────────────────────────────────────────────────
+  survival           🟢 Running       8000      PAPER     2G      localhost:8000
+  lobby              🔴 Stopped       25565     PAPER     4G      localhost
+  ─────────────────────────────────────────────────────────────────────────
+```
+
+### 3. View Server Stats & Health
 Check container status, resource usage, addresses, and live server logs:
 ```bash
 golem stats survival

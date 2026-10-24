@@ -112,6 +112,7 @@ fn main() {
                     }
 
                     println!("\n{}", "📋 Server management:".bold().cyan());
+                    println!("  • View all servers:    {}", "golem ls".bold().white());
                     println!("  • View stats:          {}", format!("golem stats {}", server_name).bold().yellow());
                     println!("  • Stop server:         {}", format!("golem stop {}", server_name).white());
                     println!("  • Run/Start server:    {}", format!("golem run {}", server_name).white());
@@ -121,6 +122,93 @@ fn main() {
                 Err(e) => {
                     println!("{}", "FAILED".bold().red());
                     eprintln!("\n{} Failed to start container:\n{}", "Error:".bold().red(), e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::Ls => {
+            println!("{}", "🗿 Golem Minecraft Servers".bold().cyan());
+
+            match docker::list_minecraft_servers() {
+                Ok(servers) if servers.is_empty() => {
+                    println!("\n{}", "No Minecraft server containers found.".yellow());
+                    println!(
+                        "Create your first server with: {}",
+                        "golem create <name> --port <port>".bold().green()
+                    );
+                    println!();
+                }
+                Ok(servers) => {
+                    println!(
+                        "{}",
+                        format!("Found {} server(s):\n", servers.len()).dimmed()
+                    );
+
+                    // Determine column widths
+                    let max_name_len = servers
+                        .iter()
+                        .map(|s| s.name.len())
+                        .max()
+                        .unwrap_or(4)
+                        .max(16);
+
+                    println!(
+                        "  {:<name_w$}  {:<14}  {:<8}  {:<8}  {:<6}  {}",
+                        "NAME".bold(),
+                        "STATUS".bold(),
+                        "PORT".bold(),
+                        "ENGINE".bold(),
+                        "RAM".bold(),
+                        "LOCAL ADDRESS".bold(),
+                        name_w = max_name_len
+                    );
+                    println!(
+                        "  {}",
+                        "─".repeat(max_name_len + 56).dimmed()
+                    );
+
+                    for s in servers {
+                        let status_badge = if s.status == "running" {
+                            "🟢 Running".bold().green()
+                        } else if s.status == "exited" {
+                            "🔴 Stopped".bold().red()
+                        } else {
+                            format!("🟡 {}", s.status).yellow()
+                        };
+
+                        let port_str = s.port.map(|p| p.to_string()).unwrap_or_else(|| "-".to_string());
+
+                        let local_addr = match s.port {
+                            Some(25565) => "localhost".to_string(),
+                            Some(p) => format!("localhost:{}", p),
+                            None => "-".to_string(),
+                        };
+
+                        println!(
+                            "  {:<name_w$}  {:<14}  {:<8}  {:<8}  {:<6}  {}",
+                            s.name.cyan().bold(),
+                            status_badge,
+                            port_str.yellow(),
+                            s.server_type,
+                            s.memory,
+                            local_addr.white(),
+                            name_w = max_name_len
+                        );
+                    }
+
+                    println!(
+                        "  {}",
+                        "─".repeat(max_name_len + 56).dimmed()
+                    );
+                    println!("\n{}", "📋 Quick Commands:".bold().cyan());
+                    println!("  • View stats:        {}", "golem stats <name>".white());
+                    println!("  • Start a server:    {}", "golem run <name>".white());
+                    println!("  • Stop a server:     {}", "golem stop <name>".white());
+                    println!();
+                }
+                Err(e) => {
+                    eprintln!("{} Failed to list servers: {}", "Error:".bold().red(), e);
                     std::process::exit(1);
                 }
             }

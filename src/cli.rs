@@ -36,6 +36,10 @@ pub enum Commands {
         online_mode: bool,
     },
 
+    /// List all Minecraft server containers
+    #[command(alias = "list")]
+    Ls,
+
     /// Run / start an existing stopped Minecraft server container
     #[command(alias = "start")]
     Run {
