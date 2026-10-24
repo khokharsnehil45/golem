@@ -1,6 +1,15 @@
 <div align="center">
 
-# 🗿 Golem
+```text
+  ██████╗  ██████╗ ██╗     ███████╗███╗   ███╗
+ ██╔════╝ ██╔═══██╗██║     ██╔════╝████╗ ████║
+ ██║  ███╗██║   ██║██║     █████╗  ██╔████╔██║
+ ██║   ██║██║   ██║██║     ██╔══╝  ██║╚██╔╝██║
+ ╚██████╔╝╚██████╔╝███████╗███████╗██║ └──═╝██║
+  ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚═╝     ╚═╝
+```
+
+# 🗿 GOLEM
 
 **A blazing-fast, lightweight CLI tool written in Rust to spin up, manage, and monitor Dockerized Minecraft servers in seconds.**
 
