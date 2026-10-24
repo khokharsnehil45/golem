@@ -59,9 +59,34 @@ pub fn show_simple_stats(server_name: &str) {
     // 3. Stats if running
     if is_running {
         if let Ok((cpu, mem)) = docker::get_container_stats(server_name) {
-            println!("  {:<18} {}", "• CPU Usage:".bold(), cpu.yellow().bold());
-            println!("  {:<18} {}", "• Memory Usage:".bold(), mem.magenta().bold());
+            println!("  {:<18} {}", "• CPU Usage:".bold(), format!("{} {}", cpu.yellow().bold(), "(Multi-core load)".dimmed()));
+
+            let (current_mem, host_total) = if let Some((c, h)) = mem.split_once('/') {
+                (c.trim(), h.trim())
+            } else {
+                (mem.trim(), "")
+            };
+
+            let mem_display = if let Some(alloc) = docker::get_container_env(server_name, "MEMORY") {
+                if !host_total.is_empty() {
+                    format!("{} / {} (Allocated Heap) {}", current_mem.magenta().bold(), alloc.cyan().bold(), format!("[Host Total: {}]", host_total).dimmed())
+                } else {
+                    format!("{} / {} (Allocated Heap)", current_mem.magenta().bold(), alloc.cyan().bold())
+                }
+            } else {
+                mem.magenta().bold().to_string()
+            };
+
+            println!("  {:<18} {}", "• Memory Usage:".bold(), mem_display);
         }
+    }
+
+    // 4. Configured settings if available
+    if let Some(max_p) = docker::get_container_env(server_name, "MAX_PLAYERS") {
+        println!("  {:<18} {}", "• Max Players:".bold(), max_p.white());
+    }
+    if let Some(vd) = docker::get_container_env(server_name, "VIEW_DISTANCE") {
+        println!("  {:<18} {}", "• View Distance:".bold(), format!("{} chunks", vd).white());
     }
     println!("{}", "──────────────────────────────────────────────────────".dimmed());
 

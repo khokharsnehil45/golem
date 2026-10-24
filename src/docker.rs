@@ -349,6 +349,30 @@ pub fn get_container_port(name: &str) -> Option<u16> {
     None
 }
 
+/// Retrieves a specific environment variable from a container (e.g. MEMORY, MAX_PLAYERS, VIEW_DISTANCE).
+pub fn get_container_env(name: &str, key: &str) -> Option<String> {
+    let output = Command::new("docker")
+        .args([
+            "inspect",
+            "--format={{range .Config.Env}}{{println .}}{{end}}",
+            name,
+        ])
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let text = String::from_utf8_lossy(&output.stdout);
+        let prefix = format!("{}=", key);
+        for line in text.lines() {
+            if let Some(val) = line.trim().strip_prefix(&prefix) {
+                return Some(val.to_string());
+            }
+        }
+    }
+
+    None
+}
+
 /// Retrieves CPU and Memory statistics for a running container.
 pub fn get_container_stats(name: &str) -> Result<(String, String), String> {
     let output = Command::new("docker")
